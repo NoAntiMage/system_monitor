@@ -65,7 +65,7 @@ class Monitor(object):
         self.svc = svc
 
     def server_status_check(self):
-        status = self.svc.request_status & self.svc.listen_status
+        status = self.svc.request_status & self.svc.connect_status & self.svc.listen_status
         if status is True:
             logger.info('{} status : OK'.format(self.svc.name))
         else:

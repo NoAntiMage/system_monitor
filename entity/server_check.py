@@ -19,6 +19,7 @@ class AppCheck(object):
         self.port_check_cmd = "ss -tunlp | grep {}".format(self.name)
         self.process_status = False
         self.listen_status = False
+        self.connect_status = False
         self.request_status = False
 
         logger.info('Checking {} status'.format(self.name))
@@ -29,8 +30,8 @@ class AppCheck(object):
         if self.process_status is True:
             self.listen_status = self.port_listen_check()
             if self.listen_status is True:
-                self.port_request_check()
-                if self.listen_status is True:
+                self.connect_status = self.port_request_check()
+                if self.connect_status is True:
                     self.request_status = self.api_check()
 
     # ReturnType boolean
