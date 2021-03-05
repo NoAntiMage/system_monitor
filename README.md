@@ -13,12 +13,13 @@
 ### 监控组件
 * 磁盘
 * 处理器
+* 内存
 * keepalive TODO
 * nginx
 * redis
 * mysql
 * zookeeper
-* java TODO
+* java PEND
 
 ### 监控指标
 * 进程

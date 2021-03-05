@@ -2,7 +2,7 @@
 # Description: 根据监控指标，执行监控任务
 # !/usr/bin/python
 
-from entity.sysinfo_check import Disk, Processor
+from entity.sysinfo_check import Disk, Processor, Memory
 from logger.logger import logger
 import traceback
 from request.post import warning_request
@@ -53,6 +53,24 @@ def cpu_check():
         else:
             logger.info('cpu status: ' + str(cpu))
         # print('cpu_metric is : ' + str(cpu_metric))
+    except Exception as e:
+        logger.error(traceback.format_exc())
+    finally:
+        logger.info('-' * 20 + '\n')
+
+
+# Description: 应用程序内存使用率大于 0.8 报警
+def memory_check():
+    try:
+        mem = Memory()
+        mem_percent = 1 - (round(mem.avail, 2) / mem.total)
+        assert type(mem_percent) == float
+
+        logger.info('memory usage percent by app: {} %'.format(str(mem_percent * 100)))
+
+        # todo config_parser
+        if mem_percent > 0.8:
+            logger.warning('high memory usage!')
     except Exception as e:
         logger.error(traceback.format_exc())
     finally:

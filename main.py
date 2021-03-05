@@ -7,6 +7,7 @@ from monitor.monitor import *
 def main():
     disk_check()
     cpu_check()
+    memory_check()
     nginx_check()
     mysql_check()
     redis_check()

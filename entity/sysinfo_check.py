@@ -4,7 +4,9 @@
 import subprocess
 from multiprocessing import cpu_count
 import traceback
-from logger.logger import *
+from logger.logger import logger
+from config.config_init import config
+import os.path
 
 
 class Disk(object):
@@ -22,7 +24,10 @@ class Disk(object):
     # initialize data
     def get_disk(self):
         try:
-            result = subprocess.Popen('df / |tail -1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            # todo main dir
+            main_dir = config.disk_info()['main_dir']
+            cmd = 'df {} |tail -1'.format(main_dir)
+            result = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             line = result.stdout.readline().strip('\n')
             free = line.split()
             self.size = int(free[1])
@@ -71,9 +76,36 @@ class Processor(object):
             logger.error(traceback.format_exc())
 
 
-if __name__ == '__main__':
-    d = Disk()
-    print(d)
-    # print(type(d))
-    p = Processor()
-    print(p)
+class Memory(object):
+    def __init__(self):
+        self.mem_info_path = '/proc/meminfo'
+        if not os.path.isfile(self.mem_info_path):
+            raise Exception('{} does not exist.'.format(self.mem_info_path))
+        self.total = 0
+        self.free = 0
+        self.avail = 0
+        self.buffer = 0
+        self.cached = 0
+
+        self.get_mem_info()
+
+    def get_mem_info(self):
+        try:
+            with open(self.mem_info_path, 'r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    if 'MemTotal' in line:
+                        self.total = int(line.split()[1])
+                    if 'MemFree' in line:
+                        self.free = int(line.split()[1])
+                    if 'MemAvailable' in line:
+                        self.avail = int(line.split()[1])
+                    if 'Buffers' in line:
+                        self.buffer = int(line.split()[1])
+                    if 'Cached' in line:
+                        self.cached = int(line.split()[1])
+        except Exception as e:
+            logger.error(traceback.format_exc())
+
+
+
