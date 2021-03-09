@@ -34,6 +34,7 @@ class AppCheck(object):
                 if self.connect_status is True:
                     self.request_status = self.api_check()
 
+    # Description: initial pid
     # ReturnType boolean
     def process_check(self):
         try:
@@ -50,6 +51,7 @@ class AppCheck(object):
         except Exception as e:
             logger.error(traceback.format_exc())
 
+    # Description: initial port
     # ReturnType boolean
     def port_listen_check(self):
         try:
@@ -129,7 +131,7 @@ class Mysql(AppCheck):
         try:
             logger.info('sending request to {}'.format(self.name))
             mysql_login = config.mysql_auth()
-            cmd = "`which mysql` -u{} -p{} -e 'select version()'".format(mysql_login['user'], mysql_login['password'])
+            cmd = "`which mysql` -P {} -u{} -p{} -e 'select version()'".format(self.port, mysql_login['user'], mysql_login['password'])
             result = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             f = result.stdout.read()
             if 'version' in f:
@@ -150,7 +152,7 @@ class Redis(AppCheck):
         try:
             logger.info('sending request to {}'.format(self.name))
             redis_login = config.redis_auth()
-            cmd = "`which redis-cli` -a {} info".format(redis_login['password'])
+            cmd = "`which redis-cli` -p {} -a {} info".format(self.port, redis_login['password'])
             result = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             f = result.stdout.read()
             if 'Server' in f:
