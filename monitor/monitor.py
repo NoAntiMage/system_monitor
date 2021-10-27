@@ -2,12 +2,15 @@
 # Description: 根据监控指标，执行监控任务
 # !/usr/bin/python
 
-from entity.sysinfo_check import Disk, Processor, Memory
+from config.config_init import config
+from entity.sysinfo_check import Disk, Processor, Memory, InputOutput
 from logger.logger import logger
 import traceback
 from request.post import warning_request
 from entity.server_check import Mysql, Nginx, Redis, Zookeeper
 
+
+# todo warning_request()
 
 # Description: 磁盘使用率大于阈值 或 磁盘剩余空间小于阈值 报警
 # ReturnType Disk
@@ -15,66 +18,72 @@ def disk_check():
     try:
         disk = Disk()
         logger.info(disk)
-        # todo config_parser
-        # todo warning_request()
+        percent_metric = int(config.get("disk", "percent"))
+        available_metric = int(config.get("disk", "available"))
 
         assert type(disk.percent) == int
         assert type(disk.avail) == int
+        assert type(available_metric) == int
 
-        if disk.percent > 85:
-            warning_request('disk percent')
-        elif disk.avail < 10 * 1024 * 1024:
-            warning_request('disk avail')
+        if disk.percent > percent_metric:
+            logger.warning('disk percent is too high!\ndisk usage:' + disk.percent)
+        elif disk.avail < int(available_metric) * 1024 * 1024:
+            logger.warning('disk avail is too low!\navailable disk:' + disk.avail)
         else:
             pass
         return disk
     except Exception as e:
         logger.error(traceback.format_exc())
-    finally:
-        logger.info('-' * 20 + '\n')
 
 
 # Description: cpu_metric 定义为 负载1分钟、5分钟、15分钟平均值
-# 平均负载大于1.5 报警， cpu使用率大于 90 报警
+# 平均负载大于阈值 报警， cpu使用率大于阈值 报警
 def cpu_check():
     try:
         cpu = Processor()
-        # print(cpu)
         cpu_metric = (cpu.upload['1m'] + cpu.upload['5m'] + cpu.upload['15m']) / 3
         average = cpu_metric / cpu.cpu_count
         assert type(average) == float
 
-        if 1 < average <= 1.5:
+        thread_per_process = int(config.get("cpu", "thread_per_cpu"))
+        percent_metric = int(config.get("cpu", "percent"))
+
+        if average > thread_per_process:
             logger.warning('cpu is overload! upload: ' + str(cpu))
-        elif average > 1.5:
-            logger.error('cpu is highly overload! please check processes. upload: ' + str(cpu))
-        elif cpu.percent > 90:
-            logger.warning('cpu usage is too high! cpu usage: ' + str(cpu.percent))
-        else:
-            logger.info('cpu status: ' + str(cpu))
+        if cpu.percent > percent_metric:
+            logger.warning('cpu usage is too high!\ncpu usage: ' + str(cpu.percent))
+
+        logger.info(cpu)
         # print('cpu_metric is : ' + str(cpu_metric))
     except Exception as e:
         logger.error(traceback.format_exc())
-    finally:
-        logger.info('-' * 20 + '\n')
 
 
-# Description: 应用程序内存使用率大于 0.8 报警
+# Description: 应用程序内存使用率大于 阈值 报警
 def memory_check():
     try:
         mem = Memory()
-        mem_percent = 1 - (round(mem.avail, 2) / mem.total)
-        assert type(mem_percent) == float
 
-        logger.info('memory usage percent by app: {} %'.format(str(mem_percent * 100)))
-
-        # todo config_parser
-        if mem_percent > 0.8:
-            logger.warning('high memory usage!')
+        percent_metric = int(config.get("memory", "percent"))
+        if mem.percent > percent_metric:
+            logger.warning('high memory usage!\nmemory usage: {} %'.format(mem.percent))
+        logger.info(mem)
     except Exception as e:
         logger.error(traceback.format_exc())
-    finally:
-        logger.info('-' * 20 + '\n')
+
+
+# Description: 读写耗时超过阈值 报警，读写队列长度超过阈值 报警
+def io_check():
+    try:
+        io = InputOutput()
+        if io.await > config.get("input-output", "await"):
+            logger.warning("per io spend too much time: {} ms".format(io.await))
+        if io.util > config.get("input-output", "util"):
+            logger.warning("disk io is overload! io queue usage : {} %".format(io.util))
+
+        logger.info(io)
+    except Exception as e:
+        logger.error(traceback.format_exc())
 
 
 # svc ParamType AppCheck
@@ -87,9 +96,8 @@ class Monitor(object):
         if status is True:
             logger.info('{} status : OK'.format(self.svc.name))
         else:
-            warning_request(self.svc.name)
+            warning_request(self.svc.name, 0)
             logger.warning('{} status : FAIL'.format(self.svc.name))
-        logger.info('-' * 20 + '\n')
 
 
 def mysql_check():

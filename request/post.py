@@ -7,8 +7,8 @@ import json
 
 
 # TODO 推送至预警api
-def warning_request(message):
-    print('post warning request {}'.format(message))
+def warning_request(message, metric):
+    print('post warning request {}: {}'.format(message, metric))
 
 
 # url = 'http://httpbin.org/post'
