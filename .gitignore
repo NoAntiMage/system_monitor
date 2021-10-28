@@ -2,3 +2,6 @@
 *.log
 .idea/*
 .scannerwork
+*.sh
+*.out
+tmp*

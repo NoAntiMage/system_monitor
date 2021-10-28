@@ -8,6 +8,7 @@ from logger.logger import logger
 from config.config_init import config
 import os.path
 from util.formatutil import pretty_format
+from util.unitutil import get_power_index
 
 
 class Disk(object):
@@ -20,11 +21,12 @@ class Disk(object):
         self.get_disk()
 
     def __str__(self):
+        unit, index = get_power_index()
         return '\ndisk status: \n' \
-               + pretty_format('size: {} Kb\n'.format(self.size)) \
-               + pretty_format('used: {} Kb\n'.format(self.used)) \
-               + pretty_format('avail: {} Kb\n'.format(self.avail/1024)) \
-               + pretty_format('percent: {} %\n'.format(self.percent))
+               + pretty_format('size: {:.2f} {}b\n'.format(self.size/(1024.00**index), unit)) \
+               + pretty_format('used: {:.2f} {}b\n'.format(self.used/(1024.00**index), unit)) \
+               + pretty_format('avail: {:.2f} {}b\n'.format(self.avail/(1024.00**index), unit)) \
+               + pretty_format('percent: {:.2f} %\n'.format(self.percent))
 
     # initialize data
     def get_disk(self):
@@ -55,10 +57,10 @@ class Processor(object):
     def __str__(self):
         # return "cpu status:\nupload is : " + str(self.upload) + "\ncpu usage: " + str(self.percent) + " %"
         return "\ncpu status:\n" \
-                + pretty_format("upload in 1m: {}\n".format(self.upload['1m'])) \
-                + pretty_format("upload in 5m: {}\n".format(self.upload['5m'])) \
-                + pretty_format("upload in 15m: {}\n".format(self.upload['15m'])) \
-                + pretty_format("usage percent: {} %\n".format(self.percent))
+                + pretty_format("upload in 1m: {:.2f}\n".format(self.upload['1m'])) \
+                + pretty_format("upload in 5m: {:.2f}\n".format(self.upload['5m'])) \
+                + pretty_format("upload in 15m: {:.2f}\n".format(self.upload['15m'])) \
+                + pretty_format("usage percent: {:.2f} %\n".format(self.percent))
 
     # ReturnType: dict
     def get_upload(self):
@@ -95,7 +97,7 @@ class Processor(object):
     # ReturnType float
     def get_cpu_percent(self):
         try:
-            result = subprocess.Popen("mpstat | tail -1", shell=True,
+            result = subprocess.Popen("mpstat 1 1 | tail -1", shell=True,
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             idle = float(result.stdout.readline().strip('\n').split()[-1])
             self.percent = round(100 - idle, 2)
@@ -113,15 +115,16 @@ class Memory(object):
         self.avail = 0
         self.buffer = 0
         self.cached = 0
-        self.percent = 0
+        self.percent = 0.00
 
         self.get_mem_info()
 
     def __str__(self):
+        unit, index = get_power_index()
         return '\nmemory status:\n' \
-                + pretty_format('total: {} Kb\n'.format(self.total)) \
-                + pretty_format('avail: {} Kb\n'.format(self.avail)) \
-                + pretty_format('usage: {} %\n'.format(round(self.percent * 100 , 2)))
+                + pretty_format('total: {:.2f} {}b\n'.format(self.total/(1024.00**index), unit)) \
+                + pretty_format('avail: {:.2f} {}b\n'.format(self.avail/(1024.00**index), unit)) \
+                + pretty_format('usage: {:.2f} %\n'.format(self.percent))
 
     def get_mem_info(self):
         if not os.path.isfile(self.mem_info_path):
@@ -140,7 +143,7 @@ class Memory(object):
                         self.buffer = int(line.split()[1])
                     if 'Cached' in line:
                         self.cached = int(line.split()[1])
-            self.percent = 1 - (round(self.avail, 2) / self.total)
+            self.percent = 100.00 - (round(self.avail, 2) / self.total) * 100
             assert type(self.percent) == float
 
         except Exception as e:
@@ -154,20 +157,20 @@ class InputOutput(object):
         else:
             self.device = device
 
-        self.await = 0
-        self.util = 0
+        self.await = 0.00
+        self.util = 0.00
 
         self.get_io_info()
 
     def __str__(self):
         return "\nio status: \n" \
                 + pretty_format('await time: {} ms\n'.format(self.await)) \
-                + pretty_format('io queue usage: {} %\n'.format(self.util))
+                + pretty_format('io queue usage: {:.2f} %\n'.format(self.util))
 
     def get_io_info(self):
         try:
             iostat = list()
-            cmd = 'iostat -x'
+            cmd = 'iostat -xy 1 1'
             result = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             iostats = result.stdout.readlines()
             for line in iostats:

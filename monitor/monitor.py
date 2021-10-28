@@ -8,6 +8,8 @@ from logger.logger import logger
 import traceback
 from request.post import warning_request
 from entity.server_check import Mysql, Nginx, Redis, Zookeeper
+from util.unitutil import get_power_index
+from template.warning_msg import *
 
 
 # todo warning_request()
@@ -18,19 +20,18 @@ def disk_check():
     try:
         disk = Disk()
         logger.info(disk)
-        percent_metric = int(config.get("disk", "percent"))
-        available_metric = int(config.get("disk", "available"))
+        percent_metric = float(config.get("disk", "percent"))
+        available_metric = float(config.get("disk", "available_G"))
 
         assert type(disk.percent) == int
         assert type(disk.avail) == int
-        assert type(available_metric) == int
+        assert type(available_metric) == float
 
         if disk.percent > percent_metric:
-            logger.warning('disk percent is too high!\ndisk usage:' + disk.percent)
-        elif disk.avail < int(available_metric) * 1024 * 1024:
-            logger.warning('disk avail is too low!\navailable disk:' + disk.avail)
-        else:
-            pass
+            logger.warning(disk_percent_warning + 'disk usage: {}%\n'.format(disk.percent))
+        if disk.avail < available_metric * 1024 * 1024:
+            unit, index = get_power_index()
+            logger.warning(disk_available_warning + 'available disk: {} {}b\n'.format(disk.avail/(1024**index), unit))
         return disk
     except Exception as e:
         logger.error(traceback.format_exc())
@@ -41,17 +42,17 @@ def disk_check():
 def cpu_check():
     try:
         cpu = Processor()
-        cpu_metric = (cpu.upload['1m'] + cpu.upload['5m'] + cpu.upload['15m']) / 3
+        cpu_metric = (cpu.upload['1m'] + cpu.upload['5m']) / 2.00
         average = cpu_metric / cpu.cpu_count
         assert type(average) == float
 
-        thread_per_process = int(config.get("cpu", "thread_per_cpu"))
-        percent_metric = int(config.get("cpu", "percent"))
+        thread_per_process = float(config.get("cpu", "thread_per_cpu"))
+        percent_metric = float(config.get("cpu", "percent"))
 
         if average > thread_per_process:
-            logger.warning('cpu is overload! upload: ' + str(cpu))
+            logger.warning(cpu_overload_warning + 'upload: {}\n'.format(average))
         if cpu.percent > percent_metric:
-            logger.warning('cpu usage is too high!\ncpu usage: ' + str(cpu.percent))
+            logger.warning(cpu_usage_warning + 'cpu usage: {:.2f} %\n'.format(cpu.percent))
 
         logger.info(cpu)
         # print('cpu_metric is : ' + str(cpu_metric))
@@ -64,9 +65,9 @@ def memory_check():
     try:
         mem = Memory()
 
-        percent_metric = int(config.get("memory", "percent"))
+        percent_metric = float(config.get("memory", "percent"))
         if mem.percent > percent_metric:
-            logger.warning('high memory usage!\nmemory usage: {} %'.format(mem.percent))
+            logger.warning(memory_usage_warning + 'memory usage: {:.2f} %\n'.format(mem.percent))
         logger.info(mem)
     except Exception as e:
         logger.error(traceback.format_exc())
@@ -76,10 +77,12 @@ def memory_check():
 def io_check():
     try:
         io = InputOutput()
-        if io.await > config.get("input-output", "await"):
-            logger.warning("per io spend too much time: {} ms".format(io.await))
-        if io.util > config.get("input-output", "util"):
-            logger.warning("disk io is overload! io queue usage : {} %".format(io.util))
+        await_metric = float(config.get("input-output", "await"))
+        util_metric = float(config.get("input-output", "util"))
+        if io.await > await_metric:
+            logger.warning(io_delay_warning + 'time: {} ms\n'.format(io.await))
+        if io.util > util_metric:
+            logger.warning(io_queue_warning + 'io queue usage : {} %\n'.format(io.util))
 
         logger.info(io)
     except Exception as e:
@@ -94,10 +97,10 @@ class Monitor(object):
     def server_status_check(self):
         status = self.svc.request_status & self.svc.connect_status & self.svc.listen_status
         if status is True:
-            logger.info('{} status : OK'.format(self.svc.name))
+            logger.info('{} status : OK\n'.format(self.svc.name))
         else:
             warning_request(self.svc.name, 0)
-            logger.warning('{} status : FAIL'.format(self.svc.name))
+            logger.warning('{} status : FAIL\n'.format(self.svc.name))
 
 
 def mysql_check():
